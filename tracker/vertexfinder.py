@@ -26,7 +26,7 @@ class chi2_vertex:
         error=0
         point = [x0, y0, z0, t0]
         for track in self.tracks:
-            error += Util.track.chi2_point_track(point, track, multiple_scattering=True, speed_constraint=False)
+            error += Util.track.chi2_point_track(point, track, multiple_scattering=False, speed_constraint=False)
             # error += Util.track.chi2_point_track_time(point, track, multiple_scattering=False)
         return error        
 
@@ -290,7 +290,8 @@ class VertexFitter:
                     if k in [i,j]:
                         continue
                     dist = Util.track.distance_to_point(tracks[k],midpoint)
-                    if dist<self.parameters["cut_vertex_TrackAddDist"]: 
+                    chi2_this = Util.track.chi2_point_track(midpoint, tracks[k])
+                    if dist<self.parameters["cut_vertex_TrackAddDist"] and chi2_this<self.parameters["cut_vertex_TrackAddChi2"]: 
 
                         N_compatible_tracks = N_compatible_tracks + 1
                         N_compatible_hits += len(tracks[k].hits)

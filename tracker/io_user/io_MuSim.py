@@ -124,9 +124,9 @@ def load(filename, printn=2000, start_event=0, end_event=-1, *args, **kwargs):
             elif version==1:
                 if  hit.layer<=3: # Two wall and two floor layers
                     data["inactive"][-1].append(hit)            
-                elif hit.layer<=7: # Top 4 celling tracking layers
+                elif hit.layer<=9: # Top 4 celling tracking layers
                     data["1"][-1].append(hit)  
-                elif hit.layer<=11: #  4 wall tracking layers
+                elif hit.layer<=15: #  4 wall tracking layers
                     data["2"][-1].append(hit)  
                     
             elif version==2:
@@ -208,7 +208,7 @@ def make_hits_newsim(x, y, z, t, layer_id, layer_direction, bar_direction, det_i
         unc[layer_direction[i]] = unc_thick
         unc[bar_direction[i]] = unc_long
         unc[other_direction] = unc_trans
-        hits.append(datatypes.Hit(x[i], y[i], z[i], t[i], unc[0], unc[1], unc[2], unc_time, layer, i,det_id[i], digi_type))
+        hits.append(datatypes.Hit(x[i], y[i], z[i], t[i], unc[0], unc[1], unc[2], unc_time, layer, i,det_id[i], digi_type[i]))
             
     return hits 
 
@@ -242,7 +242,10 @@ def root_hits_extractor(Tree, entry, version):
         Digi_layer_direction = c2list(Tree.Digi_layer_direction)
         Digi_bar_direction = c2list(Tree.Digi_bar_direction)
         Digi_det_id = c2list(Tree.Digi_det_id)
-        Digi_type = c2list(Tree.Digi_type)
+        try:
+            Digi_type = c2list(Tree.Digi_type)
+        except:
+            Digi_type = [0]*len(Digi_det_id)
         return make_hits_newsim(Digi_x, Digi_y, Digi_z, Digi_t, Digi_layer, Digi_layer_direction, Digi_bar_direction, Digi_det_id, Digi_type)
     
     # UofT test stand

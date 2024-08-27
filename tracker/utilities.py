@@ -356,7 +356,10 @@ class track:
         #               [ 	0,  1,  0,   0,  dy,   0],
         #               [	    0,  0, 	1,   0,   0,  dy]])
         # covariance = jac @ track_this.cov @ jac.T
-        covariance = track_this.cov[:3,:3] + 2*dy*track_this.cov[3:,:3] + dy*dy * track_this.cov[3:,3:] # equivalent to above, faster
+        covariance = track_this.cov[:3,:3]\
+            + dy*track_this.cov[3:,:3] \
+            + dy*track_this.cov[:3,3:] \
+            + dy*dy * track_this.cov[3:,3:] # equivalent to above, faster
 
 
         # Add the uncertainty of the point
@@ -780,7 +783,8 @@ class vertex:
         # score = 3*midpoint_chi2  + dist_seed + 0.1*y0 + 0.1*z0 + 0.2*seed_track_unc -50*N_compatible_tracks + 0.3*N_compatible_track_distance
         # score = 3*midpoint_chi2  + dist_seed + 0.2*seed_track_unc
 
-        score = dist_seed*0.5 + midpoint_chi2*10 - N_compatible_tracks*50 - seed_opening_angle*200 - seed_track_dist
+        # score = dist_seed*0.5 + midpoint_chi2*10 - N_compatible_tracks*50 - seed_opening_angle*200 - seed_track_dist
+        score = dist_seed + midpoint_chi2*10 - N_compatible_tracks*100 - seed_opening_angle*40 #+ seed_track_dist
 
         return score
 

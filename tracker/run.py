@@ -32,8 +32,12 @@ def main():
 
     # Initiate file IO
     current_dir = os.path.dirname(os.path.realpath(__file__)) # Path to this python file
-    io_full_path = current_dir+ f"/io_user/{args.io}.py" if not os.path.exists(args.io) else args.io
+    io_full_path = current_dir+ f"/io_user/{args.io}.py" if not os.path.exists(args.io) else args.io; 
+    io_full_path = os.path.abspath(io_full_path)
     io_user = importlib.machinery.SourceFileLoader("*", io_full_path).load_module()
+    print("Using IO file",io_full_path)
+
+    # Output file
     output_filename = os.path.abspath(args.output_directory) \
                         + "/"+ os.path.splitext(os.path.basename(args.input_filename))[0]\
                         + args.output_suffix \
@@ -85,7 +89,7 @@ def main():
     print(f"Running on {entries} events...")
     time_start = time.time()
     for entry in range(entries):
-        if (entry+1)%config.parameters["print_n"]==0 or args.debug:  
+        if (entry)%config.parameters["print_n"]==0 or args.debug:  
             time_stop=time.time()
             print("  Event is ", entry+config.parameters["start_event"], ", time", time_stop-time_start, "seconds")
 
