@@ -26,7 +26,7 @@ class chi2_vertex:
         error=0
         point = [x0, y0, z0, t0]
         for track in self.tracks:
-            error += Util.track.chi2_point_track(point, track, multiple_scattering=False, speed_constraint=False)
+            error += Util.track.chi2_point_track(point, track, multiple_scattering=True, speed_constraint=False)
             # error += Util.track.chi2_point_track_time(point, track, multiple_scattering=False)
         return error        
 
@@ -54,8 +54,7 @@ class VertexFitter:
 
         # Seed
         if self.debug: 
-            print("\n\n--------------------------------------")
-            print("---------Looking for vertex  --------")
+            print("\n---------Looking for vertex  --------")
         self.seeding(tracks)
         if self.debug: 
             for seed in self.seeds:
@@ -262,7 +261,7 @@ class VertexFitter:
                 if (not m.valid):
                     continue
                 if (m.fval>self.parameters["cut_vertex_SeedChi2"]):
-                    if self.debug: print(f"  * Seed ({i,j}) failed, chi2 too large. Seed fit result valid: {m.valid}, seed chi2 {m.fval}")
+                    # if self.debug: print(f"  * Seed ({i,j}) failed, chi2 too large. Seed fit result valid: {m.valid}, seed chi2 {m.fval}")
                     continue 
                     
                 midpoint = list(m.values)

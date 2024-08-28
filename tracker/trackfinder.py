@@ -46,6 +46,7 @@ class TrackFinder:
         self.total_layers = len(list(self.hits_grouped.keys()))
         self.tracks = []
         self.seeds = self.seeding(self.hits)
+        self.hit_pair = Util.HitPair(self.hits)
 
         if self.parameters["cut_track_TrackNHitsMin"]>self.total_layers:
             return self.tracks
@@ -57,11 +58,14 @@ class TrackFinder:
             self.seeds_unused = []
             while len(self.seeds)>0:
                 if len(self.hits_grouped.keys())<self.parameters["cut_track_TrackNHitsMin"]: # If not enough hits left:
-                    break                 # ------------------------------------
+                    break                 
+                
+                # ------------------------------------
                 # Round 1: Find hits that belongs to one track
                 seed = self.seeds[-1]; 
+                print(len(self.seeds), len(self.seeds_unused))
                 if self.debug: print(f"--- New seed --- \n [Seed]: {seed}")
-                hits_found, track_chi2 = self.find_once(self.hits, self.hits_grouped, seed)
+                hits_found, track_chi2 = self.find_once(self.hits, self.hits_grouped, seed, self.hit_pair)
                 # Remove the current seed no matter the track is good or not:
                 self.seeds.pop(-1)                
                 # Apply cuts
@@ -186,39 +190,39 @@ class TrackFinder:
 
 
 
-    def find(self, hits):
-        self.seeds = self.seeding(hits)
-        self.hits = copy.copy(hits)
-        self.hits_grouped = Util.track.group_hits_by_layer(self.hits)
-        self.tracks_found = []
-        while len(self.seeds)>0:
-            seed = self.seeds[-1]
-            hits_found, track_chi2 = self.find_once(self.hits, self.hits_grouped, seed)
+    # def find(self, hits):
+    #     self.seeds = self.seeding(hits)
+    #     self.hits = copy.copy(hits)
+    #     self.hits_grouped = Util.track.group_hits_by_layer(self.hits)
+    #     self.tracks_found = []
+    #     while len(self.seeds)>0:
+    #         seed = self.seeds[-1]
+    #         hits_found, track_chi2 = self.find_once(self.hits, self.hits_grouped, seed, 1)
 
 
-            # Remove the current seed no matter the track is good or not:
-            self.seeds.pop(-1)         
-            # Apply cuts
-            # If not enough hits, drop this track
-            if len(hits_found)<self.parameters["cut_track_TrackNHitsMin"]:
-                continue            
-            ndof = 3*len(hits_found) - 6
-            if ndof<=0:
-                continue            
-            track_chi2_reduced = track_chi2/ndof                   
-            # If chi2 is too large, drop this track
-            if track_chi2_reduced>self.parameters["cut_track_TrackChi2Reduced"]:
-                continue
+    #         # Remove the current seed no matter the track is good or not:
+    #         self.seeds.pop(-1)         
+    #         # Apply cuts
+    #         # If not enough hits, drop this track
+    #         if len(hits_found)<self.parameters["cut_track_TrackNHitsMin"]:
+    #             continue            
+    #         ndof = 3*len(hits_found) - 6
+    #         if ndof<=0:
+    #             continue            
+    #         track_chi2_reduced = track_chi2/ndof                   
+    #         # If chi2 is too large, drop this track
+    #         if track_chi2_reduced>self.parameters["cut_track_TrackChi2Reduced"]:
+    #             continue
 
 
-            # Attach the track if it pass the cuts
-            self.tracks_found.append(hits_found)
+    #         # Attach the track if it pass the cuts
+    #         self.tracks_found.append(hits_found)
 
-            # Remove other seeds that are in the track
-            self.remove_related_hits_seeds(hits_found)
+    #         # Remove other seeds that are in the track
+    #         self.remove_related_hits_seeds(hits_found)
             
 
-        return self.tracks_found
+    #     return self.tracks_found
 
 
     def seeding(self, hits, used_index=[]):
@@ -238,18 +242,24 @@ class TrackFinder:
                 dy = hits[i].y- hits[j].y
                 dz = hits[i].z- hits[j].z
                 dt = hits[i].t- hits[j].t
-                ds = np.abs((dx**2+dy**2+dz**2)/c**2-dt**2)
-                ds = ds/dt**2
-                if ds>self.parameters["cut_track_SeedSpeed"]:
+                # ds = np.abs((dx**2+dy**2+dz**2)/c**2-dt**2)
+                # ds = ds/dt**2
+                # if ds>self.parameters["cut_track_SeedSpeed"]:
+                #     continue
+                # seeds.append([i,j,ds,-abs(dy)])
+                
+                dr = np.linalg.norm([dx,dy,dz])
+                ds = abs(dr/c - abs(dt))
+                if ds > 1:
                     continue
-                seeds.append([i,j,ds,-abs(dy)])
+                seeds.append([i,j,ds,ds])
 
         # Sort seeds by score
         # Reversed: place the best one at the end
         seeds.sort(key=lambda s: (s[3], s[2]), reverse=True)
         return seeds
 
-    def find_once(self, hits, hits_layer_grouped, seed):  
+    def find_once(self, hits, hits_layer_grouped, seed, hit_pair):  
         #### General info ####
         LAYERS = np.sort(list(hits_layer_grouped.keys()))
 
@@ -288,7 +298,7 @@ class TrackFinder:
             if self.method=="recursive":
                 hits_found_backward, chi2 = self.find_in_layers_recursive(hits, hits_layer_grouped, FIND_BACKWARD_LAYERS, kf_find, step_pre)
             else:
-                hits_found_backward, chi2 = self.find_in_layers_greedy(hits, hits_layer_grouped, FIND_BACKWARD_LAYERS, kf_find, step_pre)
+                hits_found_backward, chi2 = self.find_in_layers_greedy(hits, hits_layer_grouped, FIND_BACKWARD_LAYERS, kf_find, step_pre, hit_pair = hit_pair)
             # Order of found hits also needs to be reversed for backward finding
             hits_found_backward = hits_found_backward[::-1] 
             hits_found_backward.extend(hits_found)   
@@ -318,13 +328,13 @@ class TrackFinder:
             if self.method=="recursive":
                 hits_found_forward,chi2 = self.find_in_layers_recursive(hits, hits_layer_grouped, FIND_FORWARD_LAYERS, kf_find, step_pre)
             else:
-                hits_found_forward,chi2 = self.find_in_layers_greedy(hits, hits_layer_grouped, FIND_FORWARD_LAYERS, kf_find, step_pre)
+                hits_found_forward,chi2 = self.find_in_layers_greedy(hits, hits_layer_grouped, FIND_FORWARD_LAYERS, kf_find, step_pre, hit_pair = hit_pair)
             chi2_found=chi2
             hits_found = hits_found[:2] + hits_found_forward
    
         return hits_found,chi2_found
 
-    def find_in_layers_greedy(self, hits, hits_layer_grouped, layers_to_scan, kf_find, step_pre, cut_chi2=True):
+    def find_in_layers_greedy(self, hits, hits_layer_grouped, layers_to_scan, kf_find, step_pre, cut_chi2=True, hit_pair=None):
         """
         Find the hit that has minimum chi2 in each layer
         """
@@ -333,6 +343,13 @@ class TrackFinder:
             hits_thislayer = hits_layer_grouped[layer]
             if len(hits_thislayer)==0:
                 continue
+            
+            # Use the pre-calculated hit pair info to see if there are any compatible hits
+            if hit_pair is not None:
+                # If there is no hit to match the previous hit, break the loop immediately
+                if len(hits_found)>0 and (not hit_pair.exists_hit(hits_found[-1])):
+                    print("--no matched hit")
+                    break
 
             # Get one hit
             hit = hits_thislayer[0]
@@ -364,6 +381,13 @@ class TrackFinder:
             chi2_predict=[]
             chi2_predict_inds =[]
             for imeasurement, m in enumerate(hits_thislayer):
+                # Use the pre-calculated hit pair info to narrow down the search
+                if hit_pair is not None:
+                    if len(hits_found)>0 and (not hit_pair.exists_pair(hits_found[-1], m)):
+                        # print("--no matched hit pair")
+                        continue
+                                    
+                # A more strict test of compatibility
                 if test_measurement_incompatible(m.x, m.z, m.t):
                     continue
                 else:
@@ -489,6 +513,10 @@ class TrackFinder:
 
             if len(hits)==0:
                 self.hits_grouped.pop(layer)
+                
+        # Clean up the hit pair:
+        for ind in hits_found_inds:
+            self.hit_pair.pop_ind(ind)
                 
     def remove_related_seeds(self, seeds, hits_found):
         hits_found_inds = [hit.ind for hit in hits_found]

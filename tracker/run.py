@@ -57,8 +57,9 @@ def main():
             print("Error loading config file:",E)
 
     # Initiate Track and Vertex finder
-    tf = TF.TrackFinder(method="greedy", debug=(config.parameters["debug_tracker"] | config.parameters["debug"] | args.debug))
-    vf = VF.VertexFitter(debug=(config.parameters["debug_vertexer"] | config.parameters["debug"] | args.debug))
+    DEBUG = config.parameters["debug_tracker"] or config.parameters["debug_vertexer"] or config.parameters["debug"] or args.debug
+    tf = TF.TrackFinder(method="greedy", debug=(DEBUG and config.parameters["debug_tracker"]))
+    vf = VF.VertexFitter(debug=(DEBUG and config.parameters["debug_vertexer"]))
     for key in config.parameters:
         tf.parameters[key] = config.parameters[key]
         vf.parameters[key] = config.parameters[key]
@@ -89,8 +90,10 @@ def main():
     print(f"Running on {entries} events...")
     time_start = time.time()
     for entry in range(entries):
-        if (entry)%config.parameters["print_n"]==0 or args.debug:  
+        if (entry)%config.parameters["print_n"]==0 or DEBUG:  
             time_stop=time.time()
+            if DEBUG:
+                print("\n\n===================================")
             print("  Event is ", entry+config.parameters["start_event"], ", time", time_stop-time_start, "seconds")
 
         results["hits"].append([])
@@ -115,7 +118,7 @@ def main():
                     
                 # Run track and vertex reconstruction
                 tracks = tf.run(hits)
-                vertices = vf.run(tracks) 
+                vertices = []#vf.run(tracks) 
 
                 # Rotate tracks and vertices back
                 if metadata["groups"][group]["flip_index"] is not None:

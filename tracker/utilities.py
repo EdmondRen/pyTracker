@@ -10,6 +10,60 @@ import iminuit
 from . import kalmanfilter as KF
 from . import datatypes
 
+
+class HitPair:
+    def __init__(self, hits, dr_range=[-150,150]):
+        self.dr_range=dr_range
+        self.hit_pair_info = HitPair.get_hit_pair_info(hits, dr_range = dr_range)
+        
+    def exists_pair(self, hit1, hit2):
+        ind_pair= (min(hit1.ind, hit2.ind),max(hit1.ind, hit2.ind))
+        return ind_pair in self.hit_pair_info
+    
+    def exists_hit(self, hit1):
+        ind = hit1.ind
+        keys = self.hit_pair_info.keys()
+        for key in keys:
+            if ind in key:
+                return True
+        return False
+    
+    def pop_hit(self, hit):
+        keys = list(self.hit_pair_info.keys())
+        for key in keys:
+            if hit.ind in key:
+                self.hit_pair_info.pop(key)
+                
+    def pop_ind(self, ind):
+        keys = list(self.hit_pair_info.keys())
+        for key in keys:
+            if ind in key:
+                self.hit_pair_info.pop(key)                
+                
+    def len(self):
+        return len(self.hit_pair_info.keys())
+             
+    
+    @staticmethod
+    def get_hit_pair_info(hits, dr_range = [-100, 100]):
+        hit_pair_info = dict()
+
+        for i in range(len(hits)):
+            for j in range(i+1, len(hits)):
+                if hits[i].layer == hits[j].layer:
+                    continue
+
+                ind_pair= tuple(sorted([hits[i].ind, hits[j].ind]))
+                dr = np.linalg.norm([hits[i].x-hits[j].x, hits[i].y-hits[j].y, hits[i].z-hits[j].z]) - 29.979* abs(hits[i].t-hits[j].t)
+
+                # Speed cut
+                if dr<dr_range[0] or dr>dr_range[1]:
+                    continue
+
+                hit_pair_info[ind_pair] = dr
+
+        return hit_pair_info
+
 class hit:
     @staticmethod
     def make_hits(x, y, z, t, ylayers):
@@ -352,9 +406,9 @@ class track:
         residual = np.array([track_x-x, track_z-z, track_t-t])
 
         # Covariance
-        # jac=np.array([[ 	1,  0,	0,  dy,   0,   0],
-        #               [ 	0,  1,  0,   0,  dy,   0],
-        #               [	    0,  0, 	1,   0,   0,  dy]])
+        # jac=np.array([[	1,  0,	0,  dy,   0,   0],
+        #               [	0,  1,  0,   0,  dy,   0],
+        #               [	0,  0, 	1,   0,   0,  dy]])
         # covariance = jac @ track_this.cov @ jac.T
         covariance = track_this.cov[:3,:3]\
             + dy*track_this.cov[3:,:3] \
