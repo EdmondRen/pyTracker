@@ -469,7 +469,7 @@ class track:
         track1 = datatypes.Track(0,0,0, 0, 1,1,0,1, np.diag(np.ones(6)), 0,0,0,0)
         track2 = datatypes.Track(0,0,1, 0, -1,1,0,1, np.diag(np.ones(6)), 0,0,0,0)
         midpoint,dist = Util.track.closest_approach_midpoint_Track(track1, track2)
-        chi2_point_track(midpoint, track2)
+        chi2_point_track_time(midpoint, track2)
 
         0.25
         ```

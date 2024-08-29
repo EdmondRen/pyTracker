@@ -63,18 +63,25 @@ class TrackFinder:
                 # ------------------------------------
                 # Round 1: Find hits that belongs to one track
                 seed = self.seeds[-1]; 
-                print(len(self.seeds), len(self.seeds_unused))
+                
+                # print(len(self.seeds), len(self.seeds_unused))
+                
+                
                 if self.debug: print(f"--- New seed --- \n [Seed]: {seed}")
                 hits_found, track_chi2 = self.find_once(self.hits, self.hits_grouped, seed, self.hit_pair)
                 # Remove the current seed no matter the track is good or not:
                 self.seeds.pop(-1)                
                 # Apply cuts
                 # If not enough hits, drop this track
+                # print(len(hits_found))
                 if len(hits_found)<track_TrackNHitsMin:
                     if self.debug: print(f"   finding failed (adding), not enough hits. Hits found: {len(hits_found)}")
                     # Keep the seeds that potentially matches to a track
                     if len(hits_found)>=self.parameters["cut_track_TrackNHitsMin"]:
-                        self.seeds_unused.append(seed)                    
+                        self.seeds_unused.append(seed)  
+                        # print("seed added back")
+                        # if len(hits_found)==track_TrackNHitsMin-1:
+                        #     self.remove_related_seeds(self.seeds, hits_found)                  
                     continue
 
 
@@ -252,7 +259,7 @@ class TrackFinder:
                 ds = abs(dr/c - abs(dt))
                 if ds > 1:
                     continue
-                seeds.append([i,j,ds,ds])
+                seeds.append([i,j, dr, -abs(dy)])
 
         # Sort seeds by score
         # Reversed: place the best one at the end

@@ -118,7 +118,7 @@ def main():
                     
                 # Run track and vertex reconstruction
                 tracks = tf.run(hits)
-                vertices = []#vf.run(tracks) 
+                vertices = vf.run(tracks) 
 
                 # Rotate tracks and vertices back
                 if metadata["groups"][group]["flip_index"] is not None:
@@ -132,6 +132,9 @@ def main():
                 event_tracks+=len(tracks)
                 vertices_found+=len(vertices)
                 event_vertices+=len(vertices)
+                
+        #  vertices = vf.run(results["tracks"][-1]) 
+        
 
         tracks_found_events   += event_tracks>0
         vertices_found_events += event_vertices>0

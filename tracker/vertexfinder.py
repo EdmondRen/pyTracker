@@ -247,31 +247,31 @@ class VertexFitter:
                     print("----------------Warning, track duplicated-------------")
                     print(i,j)
  
-                # Cut on seed chi2 (estimated)
-                # midpoint_chi2 = Util.track.chi2_point_track(midpoint, tracks[i])+ Util.track.chi2_point_track(midpoint, tracks[j])
-                # midpoint_err_sum = np.sqrt(np.sum(np.diag(Util.track.cov_point_track(midpoint, tracks[i]))+ np.diag(Util.track.cov_point_track(midpoint, tracks[j]))))
+                ##Cut on seed chi2 (estimated with closest approach midpoint)
+                midpoint_chi2 = Util.track.chi2_point_track(midpoint, tracks[i])+ Util.track.chi2_point_track(midpoint, tracks[j])
+                midpoint_err_sum = np.sqrt(np.sum(np.diag(Util.track.cov_point_track(midpoint, tracks[i]))+ np.diag(Util.track.cov_point_track(midpoint, tracks[j]))))
 
-                # Cut on seed chi2 (fit)
+                ## Cut on seed chi2 (fit, too slow)
                 # Fit the seed
-                try:
-                    m = self.fit([tracks[i], tracks[j]], midpoint, hesse=False, strategy=0, tolerance = 10)
-                except KeyboardInterrupt:
-                    print("Keyboard interrupt")
-                    sys.exit(130)
-                if (not m.valid):
-                    continue
-                if (m.fval>self.parameters["cut_vertex_SeedChi2"]):
-                    # if self.debug: print(f"  * Seed ({i,j}) failed, chi2 too large. Seed fit result valid: {m.valid}, seed chi2 {m.fval}")
-                    continue 
-                    
-                midpoint = list(m.values)
-                midpoint_chi2 = m.fval
-                midpoint_err_sum = sum(m.errors)
-                # dist_seed = 
+                # try:
+                #     m = self.fit([tracks[i], tracks[j]], midpoint, hesse=False, strategy=0, tolerance = 10)
+                # except KeyboardInterrupt:
+                #     print("Keyboard interrupt")
+                #     sys.exit(130)
+                # if (not m.valid):
+                #     continue
+                # midpoint = list(m.values)
+                # midpoint_chi2 = m.fval
+                # midpoint_err_sum = sum(m.errors)
+                
+                if (midpoint_chi2>self.parameters["cut_vertex_SeedChi2"]):
+                    # if self.debug: print(f"  * Seed ({i,j}) failed, chi2 too large, chi2 is {midpoint_chi2}")
+                    continue                 
+                
                 # print(i, j , midpoint_err_sum)
 
-                v1 = [tracks[i].Ax/tracks[i].At, tracks[i].Az/tracks[i].At, 1/tracks[i].At]
-                v2 = [tracks[j].Ax/tracks[j].At, tracks[j].Az/tracks[j].At, 1/tracks[j].At]
+                v1 = [tracks[i].Ax/tracks[i].At, tracks[i].Az/tracks[i].At, tracks[i].Ay/tracks[i].At]
+                v2 = [tracks[j].Ax/tracks[j].At, tracks[j].Az/tracks[j].At, tracks[i].Ay/tracks[j].At]
                 seed_opening_angle = np.arccos(np.dot(v1, v2)/np.linalg.norm(v1)/np.linalg.norm(v2))
                 # print(i,j,seed_opening_angle)
 
