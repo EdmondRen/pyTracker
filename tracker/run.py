@@ -118,23 +118,29 @@ def main():
                     
                 # Run track and vertex reconstruction
                 tracks = tf.run(hits)
-                vertices = vf.run(tracks) 
+                # vertices = vf.run(tracks) 
 
                 # Rotate tracks and vertices back
                 if metadata["groups"][group]["flip_index"] is not None:
                     tracks   = [Util.general.flip_track(track, metadata["groups"][group]["flip_index"]) for track in tracks]                
-                    vertices = [Util.general.flip_vertex(vertex, metadata["groups"][group]["flip_index"]) for vertex in vertices]                
+                    # vertices = [Util.general.flip_vertex(vertex, metadata["groups"][group]["flip_index"]) for vertex in vertices]                
 
                 # Save result
                 results["tracks"][-1].extend(tracks)
-                results["vertices"][-1].extend(vertices)
+                # results["vertices"][-1].extend(vertices)
                 tracks_found+=len(tracks)
                 event_tracks+=len(tracks)
-                vertices_found+=len(vertices)
-                event_vertices+=len(vertices)
+                # vertices_found+=len(vertices)
+                # event_vertices+=len(vertices)
                 
-        #  vertices = vf.run(results["tracks"][-1]) 
-        
+        # Assign the tracks a unique index:
+        for itrack in range(len(results["tracks"][-1])):
+            results["tracks"][-1][itrack] = results["tracks"][-1][itrack]._replace(ind=itrack)
+                
+        vertices = vf.run(results["tracks"][-1]) 
+        results["vertices"][-1].extend(vertices)
+        vertices_found+=len(vertices)
+        event_vertices+=len(vertices)        
 
         tracks_found_events   += event_tracks>0
         vertices_found_events += event_vertices>0

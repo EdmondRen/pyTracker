@@ -259,11 +259,12 @@ class TrackFinder:
                 ds = abs(dr/c - abs(dt))
                 if ds > 1:
                     continue
-                seeds.append([i,j, dr, -abs(dy)])
+                seeds.append([i,j, dr, abs(dy)])
 
         # Sort seeds by score
-        # Reversed: place the best one at the end
-        seeds.sort(key=lambda s: (s[3], s[2]), reverse=True)
+        # Larger gap is better.
+        # Sorting from small to large is placing the best one at the end
+        seeds.sort(key=lambda s: (s[3], s[2]))
         return seeds
 
     def find_once(self, hits, hits_layer_grouped, seed, hit_pair):  
@@ -273,7 +274,7 @@ class TrackFinder:
         ##### Seed ####
         # Check the direction of seed by comparing the time of two hits
         seed_hits = [hits[seed[0]], hits[seed[1]]]
-        # Alwayse have the first hit to be first in time
+        # Always have the first hit to be first in time
         if (seed_hits[0].t > seed_hits[1].t):
             seed_hits = seed_hits[::-1]
         seed_start_layer = seed_hits[0].layer

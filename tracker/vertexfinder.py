@@ -27,7 +27,8 @@ class chi2_vertex:
         point = [x0, y0, z0, t0]
         for track in self.tracks:
             error += Util.track.chi2_point_track(point, track, multiple_scattering=True, speed_constraint=False)
-            # error += Util.track.chi2_point_track_time(point, track, multiple_scattering=False)
+            # error += Util.track.chi2_point_track(point_temp, track_temp, multiple_scattering=True, speed_constraint=False)
+
         return error        
 
 class VertexFitter:
@@ -53,10 +54,10 @@ class VertexFitter:
         self.tracks_remaining_info = [] # a list of track infomation. Each element is [track_ind, track_chi2, track_vertex_chi2, track_vertex_dist]
 
         # Seed
-        if self.debug: 
-            print("\n---------Looking for vertex  --------")
         self.seeding(tracks)
         if self.debug: 
+            print("\n---------Looking for vertex  --------")        
+            print(" Seeds:")
             for seed in self.seeds:
                 print(seed)
 
@@ -76,7 +77,7 @@ class VertexFitter:
             vertex_chi2 = vertex_fit.fval 
             vertex_tracks = tracks_found      
             vertex_ndof = 3*len(vertex_tracks)-4
-
+            
             # ------------------------------------
             # Round 2: Drop outliers
             vertex_cov_xzt = copy.copy(vertex_cov)
@@ -94,7 +95,11 @@ class VertexFitter:
                     break 
                 # Update the fit and recalculate the track chi2
                 vertex_fit = self.fit(tracks_found, vertex_location, hesse=False, strategy=0, tolerance = 1)
-                tracks_chi2 = [Util.track.chi2_point_track(vertex_location, track, np.sqrt(np.diag(vertex_cov))) for track in tracks_found]                              
+                vertex_cov =  np.array(vertex_fit.covariance)
+                vertex_cov_xzt = copy.copy(vertex_cov)
+                vertex_cov_xzt = np.delete(vertex_cov_xzt, 1,0)
+                vertex_cov_xzt = np.delete(vertex_cov_xzt, 1,1)                
+                tracks_chi2 = [Util.track.chi2_point_track(vertex_location, track, vertex_cov_xzt) for track in tracks_found]                              
 
             if len(tracks_found)<2:
                 continue
@@ -131,6 +136,9 @@ class VertexFitter:
         return self.vertices
 
     def find_once(self, tracks, seed):
+        # tracks may not be ordered.. Make a dictionary to map track index to track
+        tracks = {track.ind:track for track in tracks}
+        
         # Add hits from the seed first
         if self.debug: print("\n--- New seed for vertex --- \n  Seed", seed)
         seed_inds = [seed.trackind1, seed.trackind2]
@@ -169,16 +177,18 @@ class VertexFitter:
             # Continue if track is too far from the seed
             if (info.track_vertex_chi2 > self.parameters["cut_vertex_TrackAddChi2"]) and\
                (info.track_vertex_dist > self.parameters["cut_vertex_TrackAddDist"]):
-                if self.debug: print(f"  * Track [{info.track_ind}] too far from vertex. Track dist to vertex: {info.track_vertex_chi2:.2f}, track chi2 to vertex: {info.track_vertex_dist:.2f}")
+                if self.debug: print(f"  * Track [{info.track_ind:<2}] too far from vertex. Track dist to vertex: {info.track_vertex_chi2:.2f}, track chi2 to vertex: {info.track_vertex_dist:.2f}")
                 continue
 
             tracks_found.append(tracks[info.track_ind])
             m = self.fit(tracks_found, vertex_location, hesse=False, strategy=0, tolerance = 1)
             ndof = 3*len(tracks_found)-4
-            if (not m.valid) \
-                or ((m.fval-vertex_chi2)>self.parameters["cut_vertex_TrackAddChi2"]):
-                # or (m.fval/ndof>self.parameters["cut_vertex_VertexChi2Reduced"])\
-                if self.debug: print(f"  * Track [{info.track_ind}] removed from vertex fit. Fit valid: {m.valid}; vertex chi2_r {m.fval/ndof:.2f}; vertex chi2 increment {m.fval-vertex_chi2 :.2f}")                                   
+            
+            track_print = ','.join([f"{x:.1f}" for x in tracks[info.track_ind][:8]])
+            vertex_print = ','.join([f"{x:.1f}" for x in list(m.values)])
+            if (not m.valid) or ((m.fval-vertex_chi2)>self.parameters["cut_vertex_TrackAddChi2"]):
+                if self.debug: 
+                    print(f" -- Track [{info.track_ind:<2}] removed.{' Valid ' if m.valid else 'Invalid'}. Vertex chi2_r {m.fval/ndof:<3.2f}, + {m.fval-vertex_chi2 :<7.2f}; Track: {track_print}; Vertex: {vertex_print}")                                   
                 tracks_found.pop(-1)
                 ndof = 3*len(tracks_found)-4
                 continue   
@@ -186,7 +196,7 @@ class VertexFitter:
             m_final=m
             vertex_location = list(m.values)
             vertex_err = list(m.values)
-            if self.debug: print(f" -> Track [{info.track_ind}] added to vertex. Vertex chi2_r {m.fval/ndof:.2f}; vertex chi2 increment {m.fval-vertex_chi2 :.2f}. Track: {tracks[info.track_ind][:8]}") 
+            if self.debug: print(f" ++ Track [{info.track_ind:<2}] added to vertex. Vertex chi2_r {m.fval/ndof:<3.2f}, + {m.fval-vertex_chi2 :.2f}. Track: {track_print}; Vertex: {vertex_print}") 
             vertex_chi2 = m_final.fval
 
 
@@ -202,7 +212,7 @@ class VertexFitter:
             # self.tracks_remaining_info.sort(key=lambda m: m.track_vertex_chi2) # sort by distance
 
         tracks_found_inds = [track.ind for track in tracks_found]
-
+        # print(m_final.fval, m_final.values, tracks_found_inds)
         return tracks_found, m_final
 
 
@@ -234,13 +244,22 @@ class VertexFitter:
 
     def seeding(self, tracks):
         seeds = []
-        for i in range(len(tracks)):
-            for j in range(i+1, len(tracks)):
+        
+        tracks = {track.ind:track for track in tracks}
+        tracks_inds = list(tracks.keys())
+        for ii in range(len(tracks_inds)):
+            for jj in range(ii+1, len(tracks_inds)):
+                i=tracks_inds[ii]
+                j=tracks_inds[jj]
+        
+        # for i in range(len(tracks)):
+        #     for j in range(i+1, len(tracks)):
+                
                 # Cut on seed distance
                 midpoint,dist_seed = Util.track.closest_approach_midpoint_Track(tracks[i], tracks[j])
 
                 if dist_seed>self.parameters["cut_vertex_SeedDist"]:
-                    if self.debug: print(f"  Seed ({i,j}) failed, distance is {dist_seed}")
+                    #if self.debug: print(f"  Seed ({i,j}) failed, distance is {dist_seed}")
                     continue
                 
                 if tracks[i].x0==tracks[j].x0:
@@ -299,6 +318,8 @@ class VertexFitter:
 
                 ## VertexSeed = namedtuple("VertexSeed",["x0", "y0", "z0", "t0", "cov", "chi2", "dist", "Ntracks", "trackind1","trackind2","score"])
                 seed_score = Util.vertex.score_seed([*midpoint, midpoint_chi2, dist_seed, N_compatible_tracks, N_compatible_track_distance, seed_track_unc, seed_track_chi2, seed_track_dist, seed_opening_angle])
+                
+                # seed_found = datatypes.VertexSeed(*midpoint, 0, midpoint_chi2, dist_seed, N_compatible_tracks, tracks[i].ind, tracks[j].ind, seed_score)
                 seed_found = datatypes.VertexSeed(*midpoint, 0, midpoint_chi2, dist_seed, N_compatible_tracks, i, j, seed_score)
                 seeds.append(seed_found)
 

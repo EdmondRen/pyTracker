@@ -204,13 +204,25 @@ class track:
         At2 = At**2
         dy2 = dy**2
         P4P5 = (1+Ax2+Az2)
+        P4P52 = P4P5*P4P5
         sin_theta = np.power(Ax**2+Az**2+1, -1/2)
 
-        Q_block1 = np.array([[(1+Ax2)*P4P5,      Ax*Az*P4P5 , (Ax-1)*P4P5*At],
-                             [  Ax*Az*P4P5,    (1+Az2)*P4P5,  (Az-1)*P4P5*At],
-                             [ (Ax-1)*P4P5*At,  (Az-1)*P4P5*At, (Ax2+Az2)*At2]])
+        # Q_block1 = np.array([[(1+Ax2)*P4P5,      Ax*Az*P4P5 , (Ax-1)*P4P5*At],
+        #                      [  Ax*Az*P4P5,    (1+Az2)*P4P5,  (Az-1)*P4P5*At],
+        #                      [ (Ax-1)*P4P5*At,  (Az-1)*P4P5*At, (Ax2+Az2)*At2]])
+        
+        Q_block1 = np.array([[(1+Ax2)*P4P5,      Ax*Az*P4P5 , Ax*P4P52*At],
+                             [  Ax*Az*P4P5,    (1+Az2)*P4P5,  Az*P4P52*At],
+                             [ Ax*P4P52*At,    Az*P4P52*At,   (Ax2+Az2)*P4P52*At2]])        
+        
+        # Q_block1 = np.array([[(1+Ax2)*P4P5,      Ax*Az*P4P5 , 0],
+        #                      [  Ax*Az*P4P5,    (1+Az2)*P4P5,  0],
+        #                      [ 0,0,0]])
+                
         Q = np.block([[Q_block1*dy2, Q_block1*dy],
                       [Q_block1*dy , Q_block1]])
+        # Q = np.block([[Q_block1*0, Q_block1*0],
+        #               [Q_block1*0 , Q_block1]])        
 
         sigma_ms2 = track.scattering_angle(multiple_scattering_length/sin_theta, momentum_MeV=multiple_scattering_p)**2
         
@@ -227,19 +239,22 @@ class track:
         At2 = At**2
         dy2 = dy**2
         P4P5 = (1+Ax2+Az2)
+        P4P52 = P4P5*P4P5
         sin_theta = np.power(Ax**2+Az**2+1, -1/2)
 
-        Q_diag = np.array([(1+Ax2)*P4P5,(1+Az2)*P4P5, (Ax2+Az2)*At2])*dy2
+        Q_block1 = dy2 * np.array([[(1+Ax2)*P4P5,      Ax*Az*P4P5 , Ax*P4P52*At],
+                             [  Ax*Az*P4P5,    (1+Az2)*P4P5,  Az*P4P52*At],
+                             [ Ax*P4P52*At,    Az*P4P52*At,   (Ax2+Az2)*P4P52*At2]])        
 
         sigma_ms2 = track.scattering_angle(multiple_scattering_length/sin_theta, momentum_MeV=multiple_scattering_p)**2
 
-        Q_diag = Q_diag*sigma_ms2
-        return Q_diag        
+        Q_block1 = Q_block1*sigma_ms2
+        return Q_block1        
     
     
     @staticmethod
-    def scattering_angle(l_rad_cm, momentum_MeV):
-        sigma_ms = 13.6 * np.sqrt(l_rad_cm) * (1 + 0.038 * np.log(l_rad_cm)) / momentum_MeV; #
+    def scattering_angle(l_rad_relative, momentum_MeV):
+        sigma_ms = 13.6 * np.sqrt(l_rad_relative) * (1 + 0.038 * np.log(l_rad_relative)) / momentum_MeV; #
         return sigma_ms 
 
 
@@ -390,6 +405,23 @@ class track:
         0.25
         ```
         """
+        if track_this.Ay == 1:
+            track_this = track_this
+            point = point
+            point_unc = point_unc
+        else:
+            ind_flip = 2 if  (track_this.Az == 1) else 0
+            track_this = general.flip_track(track_this, [1,ind_flip])    
+            point =  general.flip_list(point, [1,ind_flip])
+            if point_unc is not None:
+                if np.array(point_unc).ndim==1:
+                    point_unc = general.flip_list(point_unc, [1,ind_flip])
+                else:
+                    point_unc = general.flip_matrix(point_unc, [1,ind_flip])
+                    
+            
+               
+        
         x,y,z,t = point
         dy =  y - track_this.y0
 
@@ -409,11 +441,10 @@ class track:
         # jac=np.array([[	1,  0,	0,  dy,   0,   0],
         #               [	0,  1,  0,   0,  dy,   0],
         #               [	0,  0, 	1,   0,   0,  dy]])
-        # covariance = jac @ track_this.cov @ jac.T
         covariance = track_this.cov[:3,:3]\
             + dy*track_this.cov[3:,:3] \
             + dy*track_this.cov[:3,3:] \
-            + dy*dy * track_this.cov[3:,3:] # equivalent to above, faster
+            + dy*dy * track_this.cov[3:,3:] # equivalent to uisng Jacobian, covariance = jac @ track_this.cov @ jac.T faster
 
 
         # Add the uncertainty of the point
@@ -428,9 +459,7 @@ class track:
         # Add the uncertainty from multiple scattering in the last layer
         if multiple_scattering:
             Q_partial = track.update_Q_partial(dy, Ax, Az, At, multiple_scattering_p, multiple_scattering_length)
-            covariance[0][0]+=Q_partial[0]
-            covariance[1][1]+=Q_partial[1]
-            covariance[2][2]+=Q_partial[2]
+            covariance += Q_partial*4
 
 
         # Finally, calculate Chi-square with total covariance
@@ -502,13 +531,10 @@ class track:
 
 
         # Add the uncertainty from multiple scattering in the last layer
-        # if multiple_scattering:
-        #     Q_partial = track.update_Q_partial(dy, Ax, Az, At, multiple_scattering_p, multiple_scattering_length)
-        #     covariance[0][0]+=Q_partial[0]
-        #     covariance[1][1]+=Q_partial[1]
-        #     covariance[2][2]+=Q_partial[2]
-
-
+        if multiple_scattering:
+            Q_partial = track.update_Q_partial(dy, Ax, Az, At, multiple_scattering_p, multiple_scattering_length)
+            covariance += Q_partial*4
+            
         # Finally, calculate Chi-square with total covariance
         chi2 = residual.T @ np.linalg.inv(covariance) @ residual
 
@@ -846,12 +872,16 @@ class vertex:
 class general:
     @staticmethod
     def flip_list(l, flip_index=[0,1]):
+        if flip_index[0]==flip_index[1]:
+            return l
         l = copy.copy(l)
         l[flip_index[0]],l[flip_index[1]] = l[flip_index[1]],l[flip_index[0]]
         return l
 
     @staticmethod
     def flip_matrix(m, flip_index=[0,1]):
+        if flip_index[0]==flip_index[1]:
+            return m        
         m=np.array(m)
         m[flip_index, :] = m[flip_index[::-1], :]
         m[:, flip_index] = m[:, flip_index[::-1]]
@@ -866,6 +896,8 @@ class general:
         hit_t: datatypes.Hit
         flip_index: list, [ind1, ind2], both index should be from {0,1,2}
         """
+        if flip_index[0]==flip_index[1]:
+            return hit_t        
         hit_t = list(hit_t)
         hit_t[flip_index[0]],hit_t[flip_index[1]] = hit_t[flip_index[1]],hit_t[flip_index[0]]
         hit_t[flip_index[0]+4],hit_t[flip_index[1]+4] = hit_t[flip_index[1]+4],hit_t[flip_index[0]+4]
@@ -881,7 +913,8 @@ class general:
         flip_index: list, [ind1, ind2], both index should be from {0,1,2}        
         """
         # Track = namedtuple("Track", ["x0", "y0", "z0", "t0", "Ax", "Ay", "Az", "At", "cov", "chi2", "ind", "hits", "hits_filtered"])
-
+        if flip_index[0]==flip_index[1]:
+            return track_t
         cov = track_t.cov
         chi2 = track_t.chi2
         ind = track_t.ind
@@ -912,7 +945,8 @@ class general:
         flip_index: list, [ind1, ind2], both index should be from {0,1,2}        
         """
         # Vertex = namedtuple("Vertex", ["x0", "y0", "z0", "t0", "cov", "chi2", "tracks"])
-
+        if flip_index[0]==flip_index[1]:
+            return vertex_t
         cov = vertex_t.cov
         chi2 = vertex_t.chi2
         tracks = vertex_t.tracks
