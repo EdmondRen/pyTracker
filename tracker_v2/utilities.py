@@ -772,24 +772,24 @@ class chi2_track:
 # -------------------------------------
 # LS fit with error on time
 # ------------------------------------
-# class chi2_track:
-#     def __init__(self, hits):
-#         self.hits=hits
-#         self.func_code = iminuit.util.make_func_code(['x0', 'y0', 'z0', 't0', 'vx', 'vy', 'vz'])
-#     def __call__(self, x0, y0, z0, t0, vx, vy, vz):
-#         error_squared=0
-#         for hit in self.hits:
-#             dt = (hit.t - t0)
-#             model_x = x0 + vx*dt
-#             model_y = y0 + vy*dt
-#             model_z = z0 + vz*dt
-#             err_x2 = hit.x_err**2 + vx * hit.t_err
-#             err_y2 = hit.y_err**2 + vy * hit.t_err
-#             err_z2 = hit.z_err**2 + vz * hit.t_err
-#             error_squared += np.sum([(model_x-hit.x)**2/err_x2,
-#                                      (model_x-hit.x)**2/err_y2,
-#                                      (model_z-hit.z)**2/err_z2])
-#         return error_squared       
+class chi2_track:
+    def __init__(self, hits):
+        self.hits=hits
+        self.func_code = iminuit.util.make_func_code(['x0', 'y0', 'z0', 't0', 'vx', 'vy', 'vz'])
+    def __call__(self, x0, y0, z0, t0, vx, vy, vz):
+        error_squared=0
+        for hit in self.hits:
+            dt = (hit.t - t0)
+            model_x = x0 + vx*dt
+            model_y = y0 + vy*dt
+            model_z = z0 + vz*dt
+            err_x2 = hit.x_err**2 + vx * hit.t_err
+            err_y2 = hit.y_err**2 + vy * hit.t_err
+            err_z2 = hit.z_err**2 + vz * hit.t_err
+            error_squared += np.sum([(model_x-hit.x)**2/err_x2,
+                                     (model_x-hit.x)**2/err_y2,
+                                     (model_z-hit.z)**2/err_z2])
+        return error_squared       
 
 # -------------------------------------
 # LS fit with multiple scattering
